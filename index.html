@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flor de Lirio Mágica 🌸</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    min-height: 100vh;
+    overflow: hidden;
+    font-family: 'Cormorant Garamond', serif;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #canvas-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #scene {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+
+  /* ====== FLOR ====== */
+  #flower-container {
+    position: relative;
+    width: 320px;
+    height: 420px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  #stem {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 0;
+    background: linear-gradient(to top, #1a4d1a, #2d7a2d, #4CAF50);
+    border-radius: 3px;
+    box-shadow: 0 0 12px #2d7a2d88;
+    transition: height 2s ease;
+    transform-origin: bottom center;
+  }
+
+  #stem.grown { height: 200px; }
+
+  #flower-head {
+    position: absolute;
+    bottom: 195px;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    width: 220px;
+    height: 220px;
+    transition: transform 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  #flower-head.bloomed { transform: translateX(-50%) scale(1); }
+
+  .petal {
+    position: absolute;
+    width: 65px;
+    height: 100px;
+    background: radial-gradient(ellipse at 50% 80%, #9c27b0, #ce93d8, #e1bee7);
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    cursor: pointer;
+    transition: filter 0.3s;
+    filter: drop-shadow(0 0 8px #ce93d8aa);
+    box-shadow: inset 0 0 20px rgba(255,255,255,0.2);
+  }
+
+  .petal::after {
+    content: '';
+    position: absolute;
+    inset: 10% 30%;
+    background: linear-gradient(to top, transparent, rgba(255,255,255,0.3));
+    border-radius: 50%;
+  }
+
+  .petal:hover:not(.removed) {
+    filter: drop-shadow(0 0 20px #e040fb) brightness(1.3);
+    z-index: 10;
+  }
+
+  .petal.removed {
+    animation: petalFall 1.5s ease-in forwards;
+    pointer-events: none;
+    cursor: default;
+  }
+
+  @keyframes petalFall {
+    0% { opacity: 1; }
+    30% { transform: translateY(-30px) translateX(var(--fx)) rotate(var(--fr)) scale(1); opacity: 1; }
+    100% { transform: translateY(300px) translateX(calc(var(--fx) * 3)) rotate(calc(var(--fr) * 3)) scale(0.3); opacity: 0; }
+  }
+
+  #flower-center {
+    position: absolute;
+    width: 54px;
+    height: 54px;
+    background: radial-gradient(circle at 40% 40%, #fff176, #ffd700, #ff8f00);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 20px #ffd700cc, 0 0 40px #ff8f0088;
+    z-index: 10;
+    animation: centerPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes centerPulse {
+    0%, 100% { box-shadow: 0 0 20px #ffd700aa, 0 0 40px #ff8f0066; }
+    50% { box-shadow: 0 0 30px #ffd700, 0 0 60px #ff8f00aa; }
+  }
+
+  /* ====== MENSAJE ====== */
+  #message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 0 30px #e040fb, 0 0 60px #ab47bc;
+    pointer-events: none;
+    z-index: 50;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s;
+    opacity: 0;
+    padding: 20px;
+    background: radial-gradient(ellipse, rgba(103,0,140,0.3), transparent);
+    border-radius: 20px;
+  }
+
+  #message.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  #hint {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ce93d8;
+    font-size: 1rem;
+    font-style: italic;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1s;
+    text-shadow: 0 0 15px #ab47bc;
+    letter-spacing: 2px;
+  }
+
+  #hint.show { opacity: 1; }
+
+  #title {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #e1bee7;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1rem, 3vw, 1.6rem);
+    font-style: italic;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px #ab47bc;
+    opacity: 0;
+    transition: opacity 2s;
+    white-space: nowrap;
+  }
+
+  #title.show { opacity: 1; }
+
+  /* ====== SOBRES ====== */
+  #envelopes-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+    display: none;
+  }
+
+  .envelope {
+    position: absolute;
+    width: 100px;
+    height: 75px;
+    cursor: pointer;
+    pointer-events: all;
+    animation: envelopeFloat 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 15px #e040fb);
+    transition: transform 0.3s, filter 0.3s;
+  }
+
+  .envelope:hover {
+    transform: scale(1.15) !important;
+    filter: drop-shadow(0 0 30px #e040fb) drop-shadow(0 0 60px #ab47bc);
+    z-index: 100;
+  }
+
+  @keyframes envelopeFloat {
+    0%, 100% { transform: translateY(0px) rotate(var(--rot)); }
+    50% { transform: translateY(-20px) rotate(calc(var(--rot) * -1)); }
+  }
+
+  @keyframes envelopeAppear {
+    0% { transform: scale(0) rotate(180deg); opacity: 0; }
+    70% { transform: scale(1.2) rotate(var(--rot)); opacity: 1; }
+    100% { transform: scale(1) rotate(var(--rot)); opacity: 1; }
+  }
+
+  /* ====== CARTA MODAL ====== */
+  #letter-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+  }
+
+  #letter-modal.open { display: flex; }
+
+  .letter-paper {
+    background: linear-gradient(135deg, #fce4ec, #f8bbd0, #fce4ec);
+    border-radius: 12px;
+    padding: 50px 40px 40px;
+    max-width: 420px;
+    width: 90%;
+    position: relative;
+    box-shadow: 0 0 60px #e040fbaa, 0 20px 60px rgba(0,0,0,0.5);
+    animation: letterOpen 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-family: 'Cormorant Garamond', serif;
+    border: 2px solid rgba(206,147,216,0.5);
+  }
+
+  @keyframes letterOpen {
+    0% { transform: scale(0.5) rotateX(90deg); opacity: 0; }
+    100% { transform: scale(1) rotateX(0); opacity: 1; }
+  }
+
+  .letter-paper h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    color: #6a1b9a;
+    margin-bottom: 20px;
+    text-align: center;
+    font-style: italic;
+  }
+
+  .letter-paper p {
+    color: #4a148c;
+    line-height: 1.9;
+    font-size: 1.05rem;
+    font-style: italic;
+  }
+
+  .letter-paper .signature {
+    text-align: right;
+    margin-top: 20px;
+    font-size: 1.2rem;
+    color: #8e24aa;
+    font-family: 'Playfair Display', serif;
+  }
+
+  .letter-paper .close-btn {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #ab47bc;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .letter-paper .close-btn:hover { transform: scale(1.3) rotate(90deg); }
+
+  .letter-deco {
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  /* ====== MAGIC GLOW ====== */
+  #glow-orb {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(156,39,176,0.15), transparent 70%);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: orbPulse 4s ease-in-out infinite;
+    z-index: 0;
+  }
+
+  @keyframes orbPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+<div id="glow-orb"></div>
+
+<div id="title">✨ La Magia de Nuestra Amistad ✨</div>
+
+<div id="scene">
+  <div id="flower-container">
+    <div id="stem"></div>
+    <div id="flower-head">
+      <div id="flower-center"></div>
+    </div>
+  </div>
+</div>
+
+<div id="message"></div>
+<div id="hint">Arranca los pétalos uno a uno...</div>
+<div id="envelopes-container"></div>
+<div id="letter-modal">
+  <div class="letter-paper">
+    <button class="close-btn" onclick="closeLetter()">✕</button>
+    <div class="letter-deco" id="letter-deco"></div>
+    <h3 id="letter-title"></h3>
+    <p id="letter-body"></p>
+    <div class="signature" id="letter-sig"></div>
+  </div>
+</div>
+
+<script>
+// ===== PARTICLES =====
+const canvas = document.getElementById('canvas-bg');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+
+const particles = [];
+const starColors = ['#ce93d8','#e040fb','#ab47bc','#f8bbd0','#ffd700','#fff','#ba68c8'];
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.size = Math.random() * 2.5 + 0.5;
+    this.speedX = (Math.random() - 0.5) * 0.4;
+    this.speedY = -Math.random() * 0.5 - 0.2;
+    this.color = starColors[Math.floor(Math.random() * starColors.length)];
+    this.alpha = Math.random() * 0.8 + 0.2;
+    this.life = 1;
+    this.decay = Math.random() * 0.003 + 0.001;
+    this.glow = Math.random() > 0.7;
+  }
+  update() {
+    this.x += this.speedX;
+    this.y += this.speedY;
+    this.life -= this.decay;
+    if (this.life <= 0 || this.y < -10) this.reset();
+  }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.life * this.alpha;
+    if (this.glow) {
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = this.color;
+    }
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Magic sparkles that burst
+class Sparkle {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.vx = (Math.random() - 0.5) * 6;
+    this.vy = (Math.random() - 0.5) * 6 - 2;
+    this.size = Math.random() * 4 + 2;
+    this.color = starColors[Math.floor(Math.random() * starColors.length)];
+    this.life = 1;
+    this.decay = 0.03;
+  }
+  update() { this.x += this.vx; this.y += this.vy; this.vy += 0.1; this.life -= this.decay; }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.life;
+    ctx.shadowBlur = 20; ctx.shadowColor = this.color;
+    ctx.fillStyle = this.color;
+    // draw 4-pointed star
+    ctx.beginPath();
+    const s = this.size;
+    ctx.moveTo(this.x, this.y - s);
+    ctx.lineTo(this.x + s*0.3, this.y - s*0.3);
+    ctx.lineTo(this.x + s, this.y);
+    ctx.lineTo(this.x + s*0.3, this.y + s*0.3);
+    ctx.lineTo(this.x, this.y + s);
+    ctx.lineTo(this.x - s*0.3, this.y + s*0.3);
+    ctx.lineTo(this.x - s, this.y);
+    ctx.lineTo(this.x - s*0.3, this.y - s*0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+for (let i = 0; i < 200; i++) particles.push(new Particle());
+const sparkles = [];
+
+function burstSparkles(x, y, count = 20) {
+  for (let i = 0; i < count; i++) sparkles.push(new Sparkle(x, y));
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => { p.update(); p.draw(); });
+  for (let i = sparkles.length - 1; i >= 0; i--) {
+    sparkles[i].update(); sparkles[i].draw();
+    if (sparkles[i].life <= 0) sparkles.splice(i, 1);
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ===== FLOWER =====
+const PETAL_COUNT = 8;
+const messages = [
+  '💜 Seremos mejores amigas por siempre 💜',
+  '🤍 No lo seremos... 🤍',
+];
+let removedCount = 0;
+let flowerBloomed = false;
+
+const petalAngles = [];
+for (let i = 0; i < PETAL_COUNT; i++) petalAngles.push((360 / PETAL_COUNT) * i);
+
+function buildFlower() {
+  const head = document.getElementById('flower-head');
+  // Center of the flower-head div (110px = half of 220px)
+  const cx = 110;
+  const cy = 110;
+  const petalW = 52;
+  const petalH = 85;
+  const dist = 52; // distance from center to petal base
+
+  for (let i = 0; i < PETAL_COUNT; i++) {
+    const angle = (360 / PETAL_COUNT) * i; // degrees
+    const rad = (angle - 90) * Math.PI / 180;
+
+    // Position of petal base (bottom center of petal)
+    const bx = cx + Math.cos(rad) * dist;
+    const by = cy + Math.sin(rad) * dist;
+
+    const petal = document.createElement('div');
+    petal.className = 'petal';
+    petal.dataset.index = i;
+    // Place petal so its bottom-center is at (bx, by), then rotate
+    petal.style.cssText = `
+      width: ${petalW}px;
+      height: ${petalH}px;
+      position: absolute;
+      left: ${bx - petalW / 2}px;
+      top: ${by - petalH}px;
+      transform: rotate(${angle}deg);
+      transform-origin: ${petalW / 2}px ${petalH}px;
+      --fx: ${(Math.random()-0.5)*80}px;
+      --fr: ${(Math.random()-0.5)*180}deg;
+    `;
+    petal.title = 'Haz clic para arrancar el pétalo';
+    petal.addEventListener('click', onPetalClick);
+    head.appendChild(petal);
+  }
+}
+
+
+function onPetalClick(e) {
+  if (!flowerBloomed) return;
+
+  const petal = e.currentTarget;
+
+  // 🎵 AQUÍ VA EL CÓDIGO (justo aquí)
+  if (petal.dataset.index === "0") {
+    const music = document.getElementById("bgMusic");
+    music.volume = 0.6; 
+    music.play().catch(() => {});
+  }
+
+  if (petal.classList.contains('removed')) return;
+
+  petal.classList.add('removed');
+  removedCount++;
+
+  // burst sparkles at petal position
+  const rect = petal.getBoundingClientRect();
+  burstSparkles(rect.left + rect.width/2, rect.top + rect.height/2, 25);
+
+  // show message
+  const msgEl = document.getElementById('message');
+  const isLast = removedCount % 2 === 1; 
+  msgEl.textContent = messages[isLast ? 0 : 1];
+  msgEl.style.color = isLast ? '#e040fb' : '#9e9e9e';
+  msgEl.classList.add('show');
+  setTimeout(() => msgEl.classList.remove('show'), 1500);
+
+  if (removedCount === PETAL_COUNT) {
+    setTimeout(() => {
+      document.getElementById('hint').classList.remove('show');
+      showFinalMessage();
+    }, 800);
+  }
+}
+
+
+
+
+function showFinalMessage() {
+  const msgEl = document.getElementById('message');
+  // last petal determines final answer
+  const finalYes = removedCount % 2 === 1;
+  msgEl.innerHTML = finalYes
+    ? '✨💜 ¡SEREMOS MEJORES AMIGAS x SIEMPRE! 💜✨'
+    : '💔 No lo seremos... 💔';
+  msgEl.style.color = finalYes ? '#e040fb' : '#9e9e9e';
+  msgEl.style.fontSize = finalYes ? 'clamp(1.8rem, 5vw, 3rem)' : '';
+  msgEl.classList.add('show');
+
+  burstSparkles(window.innerWidth/2, window.innerHeight/2, 80);
+
+  setTimeout(() => {
+    msgEl.classList.remove('show');
+    setTimeout(showEnvelopes, 500);
+  }, 3000);
+}
+
+// ===== ENVELOPES =====
+const letters = [
+  {
+    deco: '💌',
+    title: 'Carta de la Amistad Eterna',
+    body: 'Mi princesa… tenerte en mi vida es como llevar un rayito de sol conmigo todos los días. Desde el primer momento sentí esa conexión bonita y sincera que hace que todo se sienta más ligero y más feliz cuando estamos juntas. Me encanta saber que puedo reír contigo por cualquier cosa, compartir secretos, sueños y esos pequeños momentos que terminan siendo los más especiales. Tu dulzura, tu forma de ser y tu cariño hacen que nuestra amistad sea un tesoro que guardo con todo mi corazón. Gracias por existir y por llenar mi vida de tanta ternura y alegría. Siempre seré tu amiga, celebrando cada instante a tu lado.',
+    sig: '— Tu amiga para siempre 🌸'
+  },
+  {
+    deco: '⭐',
+    title: 'Carta de los Mil Recuerdos',
+    body: 'Si alguien me preguntara cuál es mi lugar favorito, diría que cualquier momento a tu lado. Cada risa, cada secreto, cada locura que hemos vivido es un tesoro que guardo en el corazón.Lo más hermoso es saber que nuestra historia apenas comienza. Somos dos mujeres escribiendo un libro único, uno con mil páginas en blanco que nos esperan para llenarlas de aventuras, sueños, complicidad y momentos que solo nosotras sabemos crear. Cada día es una palabra nueva, cada abrazo un capítulo más. Caminar contigo es descubrir que lo mejor aún está por venir, que tenemos un mundo entero por inventar y recuerdos infinitos por guardar. No cambiaría lo que estamos construyendo por nada, porque escribir esta historia contigo es uno de los regalos más bonitos de mi vida.',
+    sig: '— Con todo mi cariño 💜'
+  },
+  {
+    deco: '🌙',
+    title: 'Carta de la Luna y las Estrellas',
+    body: 'Quiero que nunca olvides que estoy contigo, siempre. Como la luna que acompaña en silencio y las estrellas que brillan sin faltar, así quiero ser en tu vida: una presencia constante, suave y llena de cariño. En tus días oscuros seré tu luz chiquita pero constante, y en tus días felices seré la primera en aplaudirte. Nuestra amistad no depende del tiempo ni de la distancia, porque está hecha de amor sincero y lealtad verdadera, de esos lazos que se sienten en el alma y que crecen con cada momento compartido. A tu lado en cada paso, celebrando lo bonito, sosteniendo lo importante y recordándote siempre lo especial que eres. Porque lo nuestro brilla con luz propia, como un cielo lleno de estrellas que nunca deja de iluminar.      Contigo siempre, en todas. ✨',
+    sig: '— Tu cómplice eterna ✨'
+  },
+  {
+    deco: '🦋',
+    title: 'Carta de las Promesas',
+    body: 'Prometo escucharte aunque hables sin parar, abrazarte incluso antes de que lo pidas y cuidarte con ese cariño que nace cuando alguien se vuelve imprescindible en tu vida. Prometo quedarme a tu lado en cada proceso, celebrar tus logros como si fueran míos y recordarte lo maravillosa que eres cada vez que lo necesites. Prometo acompañarte en las risas, en los sueños y en cada paso que decidamos dar, construyendo juntas momentos que se vuelvan recuerdos imborrables. Porque estar contigo se siente como un lugar seguro, cálido y lleno de paz. Más que mi mejor amiga, eres mi hogar en forma de persona, ese refugio bonito al que siempre quiero volver.',
+    sig: '— Tu mejor amiga 🌺'
+  },
+  {
+    deco: '🔮',
+    title: 'Carta del Futuro',
+    body: 'Si pudiera elegir una y otra vez, en cada vida y en cada historia, siempre te elegiría a ti como mi mejor amiga. Porque a tu lado todo se siente más bonito, más auténtico y lleno de sentido. Imagino un futuro tejido con nuestras risas, con sueños que iremos cumpliendo juntas y con momentos que se convertirán en recuerdos inolvidables. Nos veo creciendo, celebrando cada paso y abrazándonos con esa complicidad que solo nosotras entendemos. Gracias por estar, por elegir quedarte y por hacer de mi vida un lugar más cálido y feliz. Eres mi persona favorita y una de las certezas más lindas que tengo.',
+    sig: '— De tu amiga del alma 💫'
+  }
+];
+
+function drawEnvelopeSVG(color1, color2, accent) {
+  return `<svg viewBox="0 0 100 75" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="eg${color1}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${color1}"/>
+        <stop offset="100%" stop-color="${color2}"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="100" height="75" rx="6" fill="url(#eg${color1})"/>
+    <polygon points="0,0 50,42 100,0" fill="${accent}" opacity="0.7"/>
+    <polygon points="0,0 0,75 40,38" fill="${color2}" opacity="0.5"/>
+    <polygon points="100,0 100,75 60,38" fill="${color2}" opacity="0.5"/>
+    <polygon points="0,75 100,75 60,38 40,38" fill="${color1}" opacity="0.6"/>
+    <circle cx="50" cy="40" r="8" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.8"/>
+    <text x="50" y="44" text-anchor="middle" font-size="8" fill="${accent}" opacity="0.9">💜</text>
+  </svg>`;
+}
+
+const envelopeStyles = [
+  { c1: '#6a1b9a', c2: '#ab47bc', ac: '#ffd700', pos: { left: '10%', top: '20%' }, rot: '-8deg', delay: 0 },
+  { c1: '#4a148c', c2: '#7b1fa2', ac: '#f48fb1', pos: { left: '75%', top: '15%' }, rot: '10deg', delay: 0.3 },
+  { c1: '#880e4f', c2: '#c2185b', ac: '#ce93d8', pos: { left: '5%', top: '60%' }, rot: '-12deg', delay: 0.6 },
+  { c1: '#311b92', c2: '#5e35b1', ac: '#ffd700', pos: { left: '80%', top: '65%' }, rot: '8deg', delay: 0.9 },
+  { c1: '#1a237e', c2: '#3949ab', ac: '#e040fb', pos: { left: '45%', top: '75%' }, rot: '-5deg', delay: 1.2 },
+];
+
+function reflowerFlower() {
+  const head = document.getElementById('flower-head');
+  head.querySelectorAll('.petal').forEach(p => p.remove());
+  head.classList.remove('bloomed');
+  removedCount = 0;
+  void head.offsetWidth;
+  setTimeout(() => {
+    buildFlower();
+    head.classList.add('bloomed');
+    burstSparkles(window.innerWidth/2, window.innerHeight/2 - 80, 60);
+    head.querySelectorAll('.petal').forEach(p => {
+      p.style.cursor = 'default';
+      p.style.pointerEvents = 'none';
+    });
+  }, 300);
+}
+
+function showEnvelopes() {
+  const container = document.getElementById('envelopes-container');
+  container.style.display = 'block';
+
+  reflowerFlower();
+
+  envelopeStyles.forEach((style, i) => {
+    const env = document.createElement('div');
+    env.className = 'envelope';
+    env.style.cssText = `
+      left: ${style.pos.left};
+      top: ${style.pos.top};
+      --rot: ${style.rot};
+      animation-delay: ${style.delay}s;
+      animation: envelopeAppear 0.8s cubic-bezier(0.34,1.56,0.64,1) ${style.delay}s forwards,
+                 envelopeFloat 3s ease-in-out ${parseFloat(style.delay) + 0.8}s infinite;
+      opacity: 0;
+    `;
+    env.innerHTML = drawEnvelopeSVG(style.c1, style.c2, style.ac);
+    env.addEventListener('click', () => openLetter(i));
+    env.addEventListener('click', (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      burstSparkles(r.left + r.width/2, r.top + r.height/2, 30);
+    });
+    container.appendChild(env);
+  });
+
+  // Show hint
+  const hint = document.getElementById('hint');
+  hint.textContent = '💌 Haz clic en los sobres para leer tus cartas de amistad 💌';
+  hint.classList.add('show');
+}
+
+function openLetter(i) {
+  const letter = letters[i];
+  document.getElementById('letter-deco').textContent = letter.deco;
+  document.getElementById('letter-title').textContent = letter.title;
+  document.getElementById('letter-body').textContent = letter.body;
+  document.getElementById('letter-sig').textContent = letter.sig;
+  document.getElementById('letter-modal').classList.add('open');
+}
+
+function closeLetter() {
+  document.getElementById('letter-modal').classList.remove('open');
+}
+
+// ===== INIT SEQUENCE =====
+function init() {
+  buildFlower();
+
+  // Title appears
+  setTimeout(() => document.getElementById('title').classList.add('show'), 500);
+
+  // Stem grows
+  setTimeout(() => {
+    document.getElementById('stem').classList.add('grown');
+    burstSparkles(window.innerWidth/2, window.innerHeight/2 + 100, 15);
+  }, 1000);
+
+  // Flower blooms
+  setTimeout(() => {
+    const head = document.getElementById('flower-head');
+    head.classList.add('bloomed');
+    burstSparkles(window.innerWidth/2, window.innerHeight/2 - 80, 40);
+    flowerBloomed = true;
+    document.getElementById('hint').classList.add('show');
+  }, 3200);
+}
+
+// Close modal on bg click
+document.getElementById('letter-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeLetter();
+});
+
+// Mouse move sparkle trail (subtle)
+let lastTrail = 0;
+document.addEventListener('mousemove', (e) => {
+  const now = Date.now();
+  if (now - lastTrail > 100 && flowerBloomed) {
+    lastTrail = now;
+    if (Math.random() > 0.7) {
+      const s = new Sparkle(e.clientX, e.clientY);
+      s.size = 1.5; s.decay = 0.05;
+      sparkles.push(s);
+    }
+  }
+});
+
+window.onload = init;
+</script>
+<audio id="bgMusic" src="tal vez quieras a solas estar, con el corazón roto que harás.mp3" loop></audio>
+</body>
+</html>
